@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+    <div class="">
+        <div class="header-flex">
+            <h1>Reporte de Tráfico</h1>
+            <div class="btn-group">
+                <a href="/exportar-excel" class="btn btn-primary">Excel</a>
+                <a href="/" class="btn btn-primary">+ Nuevo</a>
+            </div>
+        </div>
+
+        <table class="table-cells">
+            <thead>
+                <tr>
+                    <th>Fecha</th>
+                    <th>Código</th>
+                    <th>Destino Original</th>
+                    <th>Fuente (UTM)</th>
+                    <th>Visitante</th>
+                    <th style="text-align: right;">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for visita in visitas %}
+                <tr>
+                    <td >{{ visita.timestamp }}</td>
+                    <td><a href="/{{ visita.short_id }}" target="_blank" class="link-text">{{ visita.short_id }}</a></td>
+                    
+                    <td style="max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #555;">
+                        {{ visita.original_url }}
+                    </td>
+                    
+                    <td>
+                        {% if visita.utm_source %}
+                            <span class="badge">{{ visita.utm_source }}</span>
+                        {% else %}
+                            <span >---</span>
+                        {% endif %}
+                    </td>
+                    
+                    <td>
+                        {{ visita.ip_address }}<br>
+                        <span class="text-muted" style="font-size: 0.8rem;">{{ visita.country or 'Ubicación desc.' }}</span>
+                    </td>
+                    
+                    <td style="text-align: right;">
+                        <div class="btn-group" style="justify-content: flex-end;">
+                            <button onclick="abrirModal('{{ visita.short_id }}', '{{ visita.original_url }}')" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.8rem;">Editar</button>
+                            <button onclick="eliminarLink('{{ visita.short_id }}')" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.8rem; color: #666;">Borrar</button>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div id="editModal" class="modal-overlay">
+        <div class="modal-box">
+            <h3 style="margin-bottom: 20px;">Editar Destino</h3>
+            <input type="hidden" id="editShortId">
+            
+            <label class="text-muted" style="font-size: 0.9rem;">Nueva URL:</label>
+            <input type="url" id="editNewUrl" style="margin-top: 5px;">
+            
+            <div style="text-align: right; margin-top: 20px;">
+                <button onclick="cerrarModal()" class="btn btn-secondary">Cancelar</button>
+                <button onclick="guardarCambios()" class="btn btn-primary">Guardar Cambios</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function abrirModal(id, url) {
+            document.getElementById('editShortId').value = id;
+            document.getElementById('editNewUrl').value = url;
+            document.getElementById('editModal').style.display = 'flex';
+        }
+        function cerrarModal() { 
+            document.getElementById('editModal').style.display = 'none'; 
+        }
+        async function guardarCambios() {
+            const id = document.getElementById('editShortId').value;
+            const newUrl = document.getElementById('editNewUrl').value;
+            const res = await fetch('/editar', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ short_id: id, new_url: newUrl })
+            });
+            if(res.ok) location.reload();
+        }
+        async function eliminarLink(id) {
+            if(confirm('¿Eliminar este registro permanentemente?')) {
+                const res = await fetch('/eliminar/' + id, { method: 'DELETE' });
+                if(res.ok) location.reload();
+            }
+        }
+    </script>
+</body>
+</html>

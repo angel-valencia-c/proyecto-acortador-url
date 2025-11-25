@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Acortador URL</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+    <div >
+        <h1>Acortador</h1>
+        
+        
+        <form id="shortenForm">
+            <input type="url" id="originalUrl" placeholder="Pega tu enlace largo" required>
+            <button class="btn-secondary">Crear Enlace</button>
+        </form>
+        
+        <div id="result" style="display:none;">
+            <p >Tu nuevo enlace:</p>
+            <h2 id="shortLink"></h2>
+        </div>
+
+        <div>
+            <a href="/reportes" class="btn btn-secondary">Ver Panel de Administración</a>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('shortenForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const url = document.getElementById('originalUrl').value;
+            const res = await fetch('/crear', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ original_url: url })
+            });
+            const data = await res.json();
+            const link = window.location.origin + '/' + data.short_id;
+            
+            document.getElementById('result').style.display = 'block';
+            document.getElementById('shortLink').innerHTML = `<a href="${link}" target="_blank" class="link-text">${link}</a>`;
+        });
+    </script>
+</body>
+</html>
