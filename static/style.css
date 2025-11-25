@@ -1,4 +1,4 @@
-/* RESET Y BASE */
+
 * { box-sizing: border-box; }
 
 body {
@@ -12,7 +12,6 @@ body {
 
 h1, h2, h3 { margin-top: 0; font-weight: 600; }
 
-/* FORMULARIOS */
 input {
     width: 100%;
     padding: 12px;
@@ -24,7 +23,7 @@ input {
 
 input:focus { outline: none; border-color: #666; }
 
-/* BOTONES */
+
 .btn {
     padding: 10px 20px;
     font-size: 0.9rem;
@@ -48,18 +47,17 @@ input:focus { outline: none; border-color: #666; }
 
 .btn-group { display: flex; gap: 10px; }
 
-.link-text { color: #111; text-decoration: none; border-bottom: 1px dotted #999; }
+.link-text { color: #111; text-decoration: none;  }
 
-/* UTILIDADES */
+
 .header-flex { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; padding-bottom: 20px; }
 .badge { background: #f0f0f0; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; }
 .text-muted {  font-size: 0.85rem; }
 
-/* MODAL */
+
 .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(255,255,255,0.8); justify-content: center; align-items: center; }
 .modal-box { background: #fff; padding:80px; width: 450px; border: 1px solid #ddd; border-radius: 12px; }
 
-/* TABLA CON CELDAS */
 .table-cells { border-collapse: collapse; width: 100%; }
 .table-cells th, .table-cells td { border: 1px solid #ddd; padding: 12px; }
 .table-cells th { background: #f8f8f8; }
