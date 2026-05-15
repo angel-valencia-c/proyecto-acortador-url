@@ -6,7 +6,8 @@ import sqlite3
 import io
 from database import get_db_connection
 
-
+# Al inicio de routes.py — agrega estos imports
+from auth import login_required, handle_login, handle_logout
 try:
     import openpyxl
     from openpyxl.styles import Font, PatternFill, Alignment
@@ -14,6 +15,15 @@ except ImportError:
     openpyxl = None 
 
 bp = Blueprint('main', __name__)
+
+@bp.route('/login', methods=['GET', 'POST'])
+def login():
+    return handle_login()
+
+@bp.route('/logout')
+def logout():
+    return handle_logout()
+
 
 def generate_short_id(length=6):
     chars = string.ascii_letters + string.digits
@@ -77,6 +87,7 @@ def redireccionar(short_id):
 
 
 @bp.route('/reportes')
+@login_required
 def ver_reportes():
     conn = get_db_connection()
     query = """
