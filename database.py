@@ -4,7 +4,6 @@ import sqlite3
 from dotenv import load_dotenv
 
 load_dotenv()
-
 DB_NAME = os.getenv("DB_NAME", "tracker.db")
 
 def get_db_connection():
@@ -21,7 +20,10 @@ def init_db():
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS urls (
             short_id TEXT PRIMARY KEY,
-            original_url TEXT NOT NULL
+            original_url TEXT NOT NULL,
+            created_at DATETIME DEFAULT (datetime('now')),
+            updated_at DATETIME DEFAULT (datetime('now')),
+            is_active INTEGER DEFAULT 1
         )
     ''')
 
@@ -35,6 +37,15 @@ def init_db():
             utm_source TEXT,
             utm_medium TEXT,
             utm_campaign TEXT,
+            utm_term TEXT,
+            utm_content TEXT,
+            gclid TEXT,
+            fbclid TEXT,
+            ttclid TEXT,
+            msclkid TEXT,
+            additional_params TEXT,
+            device_type TEXT,
+            browser TEXT,
             country TEXT,
             timestamp DATETIME,
             FOREIGN KEY(short_id) REFERENCES urls(short_id)

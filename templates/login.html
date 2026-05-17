@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>URL Tracker — Acceso</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <nav class="nav">
+        <span class="nav-brand">🔗 URL Tracker</span>
+    </nav>
+
+    <div class="home-wrap">
+        <h1>Acceso al panel</h1>
+        <p class="home-sub">Introduce tu contraseña para continuar.</p>
+
+        {% if error %}
+        <div class="login-error">{{ error }}</div>
+        {% endif %}
+
+        <div class="input-row">
+            <input type="password" id="pwd" placeholder="Contraseña" autofocus
+                onkeydown="if(event.key==='Enter') document.getElementById('btn').click()">
+            <button id="btn" class="btn btn-primary" onclick="enviar()">Entrar</button>
+        </div>
+    </div>
+
+    <form id="loginForm" method="POST" style="display:none;">
+        <input type="hidden" name="password" id="hiddenPwd">
+    </form>
+
+    <script>
+        function enviar() {
+            document.getElementById('hiddenPwd').value = document.getElementById('pwd').value;
+            document.getElementById('loginForm').submit();
+        }
+    </script>
+</body>
+</html>

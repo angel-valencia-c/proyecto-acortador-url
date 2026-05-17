@@ -54,6 +54,79 @@ def crear_url():
 
 @bp.route('/<short_id>')
 def redireccionar(short_id):
+    if short_id in ('favicon.ico', 'robots.txt'):
+        return "", 404
+
+    conn = get_db_connection()
+    url_row = conn.execute(
+        "SELECT original_url, is_active FROM urls WHERE short_id = ?", 
+        (short_id,)
+    ).fetchone()
+
+    if not url_row:
+        conn.close()
+        return "Enlace no encontrado", 404
+
+    if not url_row['is_active']:
+        conn.close()
+        return "Este enlace ha sido desactivado", 410
+
+    original_url = url_row['original_url']
+
+    # Capturar todos los parámetros
+    ua_string = request.headers.get('User-Agent', '')
+    
+    # Device type simple sin librería externa
+    ua_lower = ua_string.lower()
+    if any(x in ua_lower for x in ['mobile', 'android', 'iphone']):
+        device_type = 'mobile'
+    elif 'tablet' in ua_lower or 'ipad' in ua_lower:
+        device_type = 'tablet'
+    else:
+        device_type = 'desktop'
+
+    # Browser simple
+    if 'edg' in ua_lower:
+        browser = 'Edge'
+    elif 'chrome' in ua_lower:
+        browser = 'Chrome'
+    elif 'firefox' in ua_lower:
+        browser = 'Firefox'
+    elif 'safari' in ua_lower:
+        browser = 'Safari'
+    else:
+        browser = 'Otro'
+
+    conn.execute('''
+        INSERT INTO visits (
+            short_id, ip_address, user_agent, referer,
+            utm_source, utm_medium, utm_campaign, utm_term, utm_content,
+            gclid, fbclid, ttclid, msclkid,
+            device_type, browser, country, timestamp
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ''', (
+        short_id,
+        request.remote_addr,
+        ua_string,
+        request.referrer,
+        request.args.get('utm_source'),
+        request.args.get('utm_medium'),
+        request.args.get('utm_campaign'),
+        request.args.get('utm_term'),
+        request.args.get('utm_content'),
+        request.args.get('gclid'),
+        request.args.get('fbclid'),
+        request.args.get('ttclid'),
+        request.args.get('msclkid'),
+        device_type,
+        browser,
+        None,  # country — lo conectamos después con ip-api
+        datetime.datetime.now()
+    ))
+
+    conn.commit()
+    conn.close()
+    return redirect(original_url, code=302)
     if short_id == 'favicon.ico':
         return "", 404
 
@@ -88,17 +161,68 @@ def redireccionar(short_id):
 
 @bp.route('/reportes')
 @login_required
-def ver_reportes():
+def dashboard():
     conn = get_db_connection()
-    query = """
-        SELECT v.*, u.original_url 
-        FROM visits v 
-        JOIN urls u ON v.short_id = u.short_id 
-        ORDER BY v.id DESC
-    """
-    visitas = conn.execute(query).fetchall()
+
+    # Visitas con join a urls
+    visitas = conn.execute('''
+        SELECT v.*, u.original_url, u.is_active
+        FROM visits v
+        LEFT JOIN urls u ON v.short_id = u.short_id
+        ORDER BY v.timestamp DESC
+    ''').fetchall()
+
+    # Métricas para las cards
+    total_clics = conn.execute('SELECT COUNT(*) FROM visits').fetchone()[0]
+    total_links = conn.execute('SELECT COUNT(*) FROM urls WHERE is_active = 1').fetchone()[0]
+
+    # Clics por día (últimos 7 días)
+    clics_por_dia = conn.execute('''
+        SELECT DATE(timestamp) as dia, COUNT(*) as total
+        FROM visits
+        WHERE timestamp >= DATE('now', '-7 days')
+        GROUP BY DATE(timestamp)
+        ORDER BY dia ASC
+    ''').fetchall()
+
+    # Device breakdown
+    devices = conn.execute('''
+        SELECT device_type, COUNT(*) as total
+        FROM visits
+        WHERE device_type IS NOT NULL
+        GROUP BY device_type
+    ''').fetchall()
+
+    # Top UTM sources
+    top_sources = conn.execute('''
+        SELECT utm_source, COUNT(*) as total
+        FROM visits
+        WHERE utm_source IS NOT NULL
+        GROUP BY utm_source
+        ORDER BY total DESC
+        LIMIT 5
+    ''').fetchall()
+
+    # Top browsers
+    browsers = conn.execute('''
+        SELECT browser, COUNT(*) as total
+        FROM visits
+        WHERE browser IS NOT NULL
+        GROUP BY browser
+        ORDER BY total DESC
+    ''').fetchall()
+
     conn.close()
-    return render_template('dashboard.html', visitas=visitas)
+
+    return render_template('dashboard.html',
+        visitas=visitas,
+        total_clics=total_clics,
+        total_links=total_links,
+        clics_por_dia=[dict(r) for r in clics_por_dia],
+        devices=[dict(r) for r in devices],
+        top_sources=[dict(r) for r in top_sources],
+        browsers=[dict(r) for r in browsers],
+    )
 
 @bp.route('/editar', methods=['POST'])
 def editar_url():
@@ -125,7 +249,27 @@ def eliminar_url(short_id):
     conn.close()
     return jsonify({'message': 'Eliminado correctamente'})
 
-
+@bp.route('/toggle/<short_id>', methods=['POST'])
+@login_required
+def toggle_link(short_id):
+    """Activa o desactiva un enlace corto."""
+    conn = get_db_connection()
+    current = conn.execute(
+        "SELECT is_active FROM urls WHERE short_id = ?", (short_id,)
+    ).fetchone()
+    
+    if not current:
+        conn.close()
+        return jsonify({'error': 'No encontrado'}), 404
+    
+    new_state = 0 if current['is_active'] else 1
+    conn.execute(
+        "UPDATE urls SET is_active = ?, updated_at = datetime('now') WHERE short_id = ?",
+        (new_state, short_id)
+    )
+    conn.commit()
+    conn.close()
+    return jsonify({'is_active': new_state})
 
 @bp.route('/exportar-excel')
 def exportar_excel():

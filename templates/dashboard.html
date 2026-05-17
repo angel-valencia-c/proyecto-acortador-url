@@ -2,104 +2,268 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>URL Tracker — Dashboard</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
 <body>
 
-    <div class="">
-        <div class="header-flex">
-            <h1>Reporte de Tráfico</h1>
-            <div class="btn-group">
-                <a href="/exportar-excel" class="btn btn-primary">Excel</a>
-                <a href="/" class="btn btn-primary">+ Nuevo</a>
+    <!-- NAV -->
+    <nav class="nav">
+        <span class="nav-brand">🔗 URL TRACKER</span>
+        <div class="nav-links">
+            <a href="/" class="nav-link">+ Nuevo enlace</a>
+            <a href="/exportar-excel" class="nav-link">↓ Excel</a>
+            <a href="/exportar-csv" class="nav-link">↓ CSV</a>
+            <a href="/logout" class="nav-link nav-link-muted">Salir</a>
+        </div>
+    </nav>
+
+    <main class="main">
+
+        <!-- HEADER -->
+        <div class="page-header">
+            <h1 class="page-title">Tráfico</h1>
+            <p class="page-sub">Resumen de actividad y rendimiento de enlaces</p>
+        </div>
+
+        <!-- MÉTRICAS -->
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <div class="metric-label">Total clics</div>
+                <div class="metric-value">{{ total_clics }}</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Links activos</div>
+                <div class="metric-value">{{ total_links }}</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Dispositivo top</div>
+                <div class="metric-value">
+                    {% if devices %}{{ devices[0].device_type | capitalize }}{% else %}—{% endif %}
+                </div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Fuente top</div>
+                <div class="metric-value">
+                    {% if top_sources %}{{ top_sources[0].utm_source }}{% else %}—{% endif %}
+                </div>
             </div>
         </div>
 
-        <table class="table-cells">
-            <thead>
-                <tr>
-                    <th>Fecha</th>
-                    <th>Código</th>
-                    <th>Destino Original</th>
-                    <th>Fuente (UTM)</th>
-                    <th>Visitante</th>
-                    <th style="text-align: right;">Acciones</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for visita in visitas %}
-                <tr>
-                    <td >{{ visita.timestamp }}</td>
-                    <td><a href="/{{ visita.short_id }}" target="_blank" class="link-text">{{ visita.short_id }}</a></td>
-                    
-                    <td style="max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #555;">
-                        {{ visita.original_url }}
-                    </td>
-                    
-                    <td>
-                        {% if visita.utm_source %}
-                            <span class="badge">{{ visita.utm_source }}</span>
-                        {% else %}
-                            <span >---</span>
-                        {% endif %}
-                    </td>
-                    
-                    <td>
-                        {{ visita.ip_address }}<br>
-                        <span class="text-muted" style="font-size: 0.8rem;">{{ visita.country or 'Ubicación desc.' }}</span>
-                    </td>
-                    
-                    <td style="text-align: right;">
-                        <div class="btn-group" style="justify-content: flex-end;">
-                            <button onclick="abrirModal('{{ visita.short_id }}', '{{ visita.original_url }}')" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.8rem;">Editar</button>
-                            <button onclick="eliminarLink('{{ visita.short_id }}')" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.8rem; color: #666;">Borrar</button>
-                        </div>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
+        <!-- GRÁFICAS -->
+        <div class="charts-grid">
+            <div class="chart-card chart-card--wide">
+                <div class="chart-header">
+                    <span class="chart-title">Clics por día</span>
+                    <span class="chart-sub">Últimos 7 días</span>
+                </div>
+                <canvas id="clicsChart" height="80"></canvas>
+            </div>
+            <div class="chart-card">
+                <div class="chart-header">
+                    <span class="chart-title">Dispositivos</span>
+                </div>
+                <canvas id="deviceChart" height="140"></canvas>
+            </div>
+        </div>
 
+        <!-- FILTROS -->
+        <div class="filters-bar">
+            <input type="text" id="filterCodigo" placeholder="Filtrar por código..." class="filter-input" oninput="filtrarTabla()">
+            <input type="text" id="filterUTM" placeholder="Filtrar por UTM source..." class="filter-input" oninput="filtrarTabla()">
+            <input type="date" id="filterFecha" class="filter-input" oninput="filtrarTabla()">
+            <button onclick="limpiarFiltros()" class="btn btn-ghost">Limpiar</button>
+        </div>
+
+        <!-- TABLA -->
+        <div class="table-wrap">
+            <table class="table" id="mainTable">
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Código</th>
+                        <th>Destino</th>
+                        <th>UTM Source</th>
+                        <th>Dispositivo</th>
+                        <th>Navegador</th>
+                        <th>Visitante</th>
+                        <th>Estado</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for v in visitas %}
+                    <tr data-codigo="{{ v.short_id }}" 
+                        data-utm="{{ v.utm_source or '' }}" 
+                        data-fecha="{{ v.timestamp[:10] if v.timestamp else '' }}">
+
+                        <td class="td-muted">{{ v.timestamp[:16] if v.timestamp else '—' }}</td>
+
+                        <td>
+                            <a href="/{{ v.short_id }}" target="_blank" class="code-link">{{ v.short_id }}</a>
+                        </td>
+
+                        <td class="td-url">{{ v.original_url or '—' }}</td>
+
+                        <td>
+                            {% if v.utm_source %}
+                                <span class="badge">{{ v.utm_source }}</span>
+                            {% else %}
+                                <span class="td-muted">—</span>
+                            {% endif %}
+                        </td>
+
+                        <td class="td-muted">{{ v.device_type | capitalize if v.device_type else '—' }}</td>
+
+                        <td class="td-muted">{{ v.browser or '—' }}</td>
+
+                        <td class="td-muted">{{ v.ip_address or '—' }}</td>
+
+                        <td>
+                            <button 
+                                onclick="toggleLink('{{ v.short_id }}', this)"
+                                class="btn-toggle {% if v.is_active %}btn-toggle--on{% else %}btn-toggle--off{% endif %}">
+                                {% if v.is_active %}Activo{% else %}Inactivo{% endif %}
+                            </button>
+                        </td>
+
+                        <td class="td-actions">
+                            <button onclick="abrirModal('{{ v.short_id }}', '{{ v.original_url }}')" class="btn-action">Editar</button>
+                            <button onclick="eliminarLink('{{ v.short_id }}')" class="btn-action btn-action--danger">Borrar</button>
+                        </td>
+
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="9" style="text-align:center; padding: 40px; color: #999;">
+                            Sin registros aún. Crea tu primer enlace corto.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+    </main>
+
+    <!-- MODAL EDITAR -->
     <div id="editModal" class="modal-overlay">
         <div class="modal-box">
-            <h3 style="margin-bottom: 20px;">Editar Destino</h3>
+            <h3>Editar destino</h3>
+            <p class="modal-sub">El código corto no cambia, solo la URL de destino.</p>
             <input type="hidden" id="editShortId">
-            
-            <label class="text-muted" style="font-size: 0.9rem;">Nueva URL:</label>
-            <input type="url" id="editNewUrl" style="margin-top: 5px;">
-            
-            <div style="text-align: right; margin-top: 20px;">
-                <button onclick="cerrarModal()" class="btn btn-secondary">Cancelar</button>
-                <button onclick="guardarCambios()" class="btn btn-primary">Guardar Cambios</button>
+            <label class="form-label">Nueva URL</label>
+            <input type="url" id="editNewUrl" placeholder="https://...">
+            <div class="modal-actions">
+                <button onclick="cerrarModal()" class="btn btn-ghost">Cancelar</button>
+                <button onclick="guardarCambios()" class="btn btn-primary">Guardar</button>
             </div>
         </div>
     </div>
 
     <script>
+        const clicsPorDia = {{ clics_por_dia | tojson }};
+        const devices     = {{ devices | tojson }};
+
+        // Gráfica clics por día
+        new Chart(document.getElementById('clicsChart').getContext('2d'), {
+            type: 'line',
+            data: {
+                labels: clicsPorDia.map(d => d.dia),
+                datasets: [{
+                    label: 'Clics',
+                    data: clicsPorDia.map(d => d.total),
+                    borderColor: '#111',
+                    backgroundColor: 'rgba(17,17,17,0.05)',
+                    borderWidth: 1.5,
+                    pointRadius: 3,
+                    tension: 0.3,
+                    fill: true,
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { grid: { color: '#f0f0f0' }, ticks: { font: { size: 11 }, color: '#999' } },
+                    y: { grid: { color: '#f0f0f0' }, ticks: { font: { size: 11 }, color: '#999', precision: 0 } }
+                }
+            }
+        });
+
+        // Gráfica dispositivos
+        new Chart(document.getElementById('deviceChart').getContext('2d'), {
+            type: 'doughnut',
+            data: {
+                labels: devices.map(d => d.device_type),
+                datasets: [{
+                    data: devices.map(d => d.total),
+                    backgroundColor: ['#111', '#555', '#aaa'],
+                    borderWidth: 0,
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { position: 'bottom', labels: { font: { size: 11 }, color: '#555', boxWidth: 10 } }
+                }
+            }
+        });
+
+        // Filtros
+        function filtrarTabla() {
+            const codigo = document.getElementById('filterCodigo').value.toLowerCase();
+            const utm    = document.getElementById('filterUTM').value.toLowerCase();
+            const fecha  = document.getElementById('filterFecha').value;
+            document.querySelectorAll('#mainTable tbody tr[data-codigo]').forEach(row => {
+                const matchCodigo = !codigo || row.dataset.codigo.toLowerCase().includes(codigo);
+                const matchUtm    = !utm    || row.dataset.utm.toLowerCase().includes(utm);
+                const matchFecha  = !fecha  || row.dataset.fecha === fecha;
+                row.style.display = (matchCodigo && matchUtm && matchFecha) ? '' : 'none';
+            });
+        }
+
+        function limpiarFiltros() {
+            ['filterCodigo','filterUTM','filterFecha'].forEach(id => document.getElementById(id).value = '');
+            filtrarTabla();
+        }
+
+        // Modal
         function abrirModal(id, url) {
             document.getElementById('editShortId').value = id;
-            document.getElementById('editNewUrl').value = url;
+            document.getElementById('editNewUrl').value  = url;
             document.getElementById('editModal').style.display = 'flex';
         }
-        function cerrarModal() { 
-            document.getElementById('editModal').style.display = 'none'; 
+        function cerrarModal() {
+            document.getElementById('editModal').style.display = 'none';
         }
         async function guardarCambios() {
-            const id = document.getElementById('editShortId').value;
+            const id     = document.getElementById('editShortId').value;
             const newUrl = document.getElementById('editNewUrl').value;
-            const res = await fetch('/editar', {
+            const res    = await fetch('/editar', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ short_id: id, new_url: newUrl })
             });
-            if(res.ok) location.reload();
+            if (res.ok) location.reload();
         }
         async function eliminarLink(id) {
-            if(confirm('¿Eliminar este registro permanentemente?')) {
+            if (confirm('¿Eliminar este registro permanentemente?')) {
                 const res = await fetch('/eliminar/' + id, { method: 'DELETE' });
-                if(res.ok) location.reload();
+                if (res.ok) location.reload();
+            }
+        }
+        async function toggleLink(id, btn) {
+            const res  = await fetch('/toggle/' + id, { method: 'POST' });
+            const data = await res.json();
+            if (data.is_active) {
+                btn.textContent = 'Activo';
+                btn.className   = 'btn-toggle btn-toggle--on';
+            } else {
+                btn.textContent = 'Inactivo';
+                btn.className   = 'btn-toggle btn-toggle--off';
             }
         }
     </script>

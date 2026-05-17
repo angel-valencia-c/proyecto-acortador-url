@@ -2,44 +2,67 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Acortador URL</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>URL Tracker</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
+    <nav class="nav">
+        <span class="nav-brand">🔗 URL Tracker</span>
+        <a href="/reportes" class="nav-link">Dashboard →</a>
+    </nav>
 
-    <div >
-        <h1>Acortador</h1>
-        
-        
-        <form id="shortenForm">
-            <input type="url" id="originalUrl" placeholder="Pega tu enlace largo" required>
-            <button class="btn-secondary">Crear Enlace</button>
-        </form>
-        
-        <div id="result" style="display:none;">
-            <p >Tu nuevo enlace:</p>
-            <h2 id="shortLink"></h2>
+    <div class="home-wrap">
+        <h1>Acorta tu enlace</h1>
+        <p class="home-sub">Genera un link corto con tracking de clics, dispositivos y campañas UTM.</p>
+
+        <div class="input-row">
+            <input type="url" id="originalUrl" placeholder="https://tu-url-larga.com/..." required>
+            <button class="btn btn-primary" onclick="acortar()">Acortar</button>
         </div>
 
-        <div>
-            <a href="/reportes" class="btn btn-secondary">Ver Panel de Administración</a>
+        <div id="result" class="result-box" style="display:none;">
+            <div class="result-label">Tu enlace corto</div>
+            <div class="result-link"><a id="shortLink" href="#" target="_blank"></a></div>
+            <div class="result-actions">
+                <button class="btn-copy" onclick="copiar()">Copiar</button>
+                <a id="openLink" href="#" target="_blank" class="btn-copy">Abrir →</a>
+            </div>
+        </div>
+
+        <div class="home-nav">
+            <a href="/reportes">Ver panel de administración →</a>
         </div>
     </div>
 
     <script>
-        document.getElementById('shortenForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
+        async function acortar() {
             const url = document.getElementById('originalUrl').value;
-            const res = await fetch('/crear', {
+            if (!url) return;
+            const res  = await fetch('/crear', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ original_url: url })
             });
             const data = await res.json();
             const link = window.location.origin + '/' + data.short_id;
-            
+            document.getElementById('shortLink').href = link;
+            document.getElementById('shortLink').textContent = link;
+            document.getElementById('openLink').href = link;
             document.getElementById('result').style.display = 'block';
-            document.getElementById('shortLink').innerHTML = `<a href="${link}" target="_blank" class="link-text">${link}</a>`;
+        }
+
+        function copiar() {
+            const link = document.getElementById('shortLink').textContent;
+            navigator.clipboard.writeText(link).then(() => {
+                const btn = document.querySelector('.btn-copy');
+                btn.textContent = '¡Copiado!';
+                setTimeout(() => btn.textContent = 'Copiar', 1500);
+            });
+        }
+
+        document.getElementById('originalUrl').addEventListener('keydown', e => {
+            if (e.key === 'Enter') acortar();
         });
     </script>
 </body>
