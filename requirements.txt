@@ -1,3 +1,6 @@
 Flask
 openpyxl
 python-dotenv
+gunicorn
+pytest
+requests

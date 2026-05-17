@@ -69,10 +69,13 @@
             </div>
         </div>
 
-        <!-- FILTROS -->
+       <!-- FILTROS -->
         <div class="filters-bar">
             <input type="text" id="filterCodigo" placeholder="Filtrar por código..." class="filter-input" oninput="filtrarTabla()">
-            <input type="text" id="filterUTM" placeholder="Filtrar por UTM source..." class="filter-input" oninput="filtrarTabla()">
+            <input type="text" id="filterUTM" placeholder="UTM source..." class="filter-input" oninput="filtrarTabla()">
+            <input type="text" id="filterCampaign" placeholder="UTM campaign..." class="filter-input" oninput="filtrarTabla()">
+            <input type="text" id="filterPais" placeholder="País..." class="filter-input" oninput="filtrarTabla()">
+            <input type="text" id="filterUrl" placeholder="URL destino..." class="filter-input" oninput="filtrarTabla()">
             <input type="date" id="filterFecha" class="filter-input" oninput="filtrarTabla()">
             <button onclick="limpiarFiltros()" class="btn btn-ghost">Limpiar</button>
         </div>
@@ -89,14 +92,18 @@
                         <th>Dispositivo</th>
                         <th>Navegador</th>
                         <th>Visitante</th>
+                        <th>País</th>
                         <th>Estado</th>
                         <th></th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for v in visitas %}
-                    <tr data-codigo="{{ v.short_id }}" 
-                        data-utm="{{ v.utm_source or '' }}" 
+                    <tr data-codigo="{{ v.short_id }}"
+                        data-utm="{{ v.utm_source or '' }}"
+                        data-campaign="{{ v.utm_campaign or '' }}"
+                        data-pais="{{ v.country or '' }}"
+                        data-url="{{ v.original_url or '' }}"
                         data-fecha="{{ v.timestamp[:10] if v.timestamp else '' }}">
 
                         <td class="td-muted">{{ v.timestamp[:16] if v.timestamp else '—' }}</td>
@@ -120,6 +127,8 @@
                         <td class="td-muted">{{ v.browser or '—' }}</td>
 
                         <td class="td-muted">{{ v.ip_address or '—' }}</td>
+                        
+                        <td class="td-muted">{{ v.country or '—' }}</td>
 
                         <td>
                             <button 
@@ -214,19 +223,28 @@
 
         // Filtros
         function filtrarTabla() {
-            const codigo = document.getElementById('filterCodigo').value.toLowerCase();
-            const utm    = document.getElementById('filterUTM').value.toLowerCase();
-            const fecha  = document.getElementById('filterFecha').value;
+            const codigo   = document.getElementById('filterCodigo').value.toLowerCase();
+            const utm      = document.getElementById('filterUTM').value.toLowerCase();
+            const campaign = document.getElementById('filterCampaign').value.toLowerCase();
+            const pais     = document.getElementById('filterPais').value.toLowerCase();
+            const url      = document.getElementById('filterUrl').value.toLowerCase();
+            const fecha    = document.getElementById('filterFecha').value;
+
             document.querySelectorAll('#mainTable tbody tr[data-codigo]').forEach(row => {
-                const matchCodigo = !codigo || row.dataset.codigo.toLowerCase().includes(codigo);
-                const matchUtm    = !utm    || row.dataset.utm.toLowerCase().includes(utm);
-                const matchFecha  = !fecha  || row.dataset.fecha === fecha;
-                row.style.display = (matchCodigo && matchUtm && matchFecha) ? '' : 'none';
+                const match = 
+                    (!codigo   || row.dataset.codigo.toLowerCase().includes(codigo)) &&
+                    (!utm      || row.dataset.utm.toLowerCase().includes(utm)) &&
+                    (!campaign || row.dataset.campaign.toLowerCase().includes(campaign)) &&
+                    (!pais     || row.dataset.pais.toLowerCase().includes(pais)) &&
+                    (!url      || row.dataset.url.toLowerCase().includes(url)) &&
+                    (!fecha    || row.dataset.fecha === fecha);
+                row.style.display = match ? '' : 'none';
             });
         }
 
         function limpiarFiltros() {
-            ['filterCodigo','filterUTM','filterFecha'].forEach(id => document.getElementById(id).value = '');
+            ['filterCodigo','filterUTM','filterCampaign','filterPais','filterUrl','filterFecha']
+                .forEach(id => document.getElementById(id).value = '');
             filtrarTabla();
         }
 
