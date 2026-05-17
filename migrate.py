@@ -9,38 +9,35 @@ DB_NAME = os.getenv("DB_NAME", "tracker.db")
 def migrate():
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-
     print("🔄 Iniciando migración...")
 
-    # --- Tabla urls: agregar columnas faltantes ---
-    columnas_urls = [
-        "ALTER TABLE urls ADD COLUMN created_at DATETIME DEFAULT (datetime('now'))",
-        "ALTER TABLE urls ADD COLUMN updated_at DATETIME DEFAULT (datetime('now'))",
-        "ALTER TABLE urls ADD COLUMN is_active INTEGER DEFAULT 1",
+    columnas = [
+        ("urls", "created_at", "DATETIME DEFAULT (datetime('now'))"),
+        ("urls", "updated_at", "DATETIME DEFAULT (datetime('now'))"),
+        ("urls", "is_active",  "INTEGER DEFAULT 1"),
+        ("visits", "utm_term",         "TEXT"),
+        ("visits", "utm_content",      "TEXT"),
+        ("visits", "gclid",            "TEXT"),
+        ("visits", "gbraid",           "TEXT"),
+        ("visits", "wbraid",           "TEXT"),
+        ("visits", "fbclid",           "TEXT"),
+        ("visits", "fb_action_ids",    "TEXT"),
+        ("visits", "fb_action_types",  "TEXT"),
+        ("visits", "ttclid",           "TEXT"),
+        ("visits", "msclkid",          "TEXT"),
+        ("visits", "twclid",           "TEXT"),
+        ("visits", "additional_params","TEXT"),
+        ("visits", "device_type",      "TEXT"),
+        ("visits", "browser",          "TEXT"),
     ]
 
-    # --- Tabla visits: agregar columnas faltantes ---
-    columnas_visits = [
-        "ALTER TABLE visits ADD COLUMN utm_term TEXT",
-        "ALTER TABLE visits ADD COLUMN utm_content TEXT",
-        "ALTER TABLE visits ADD COLUMN gclid TEXT",
-        "ALTER TABLE visits ADD COLUMN fbclid TEXT",
-        "ALTER TABLE visits ADD COLUMN ttclid TEXT",
-        "ALTER TABLE visits ADD COLUMN msclkid TEXT",
-        "ALTER TABLE visits ADD COLUMN additional_params TEXT",
-        "ALTER TABLE visits ADD COLUMN device_type TEXT",
-        "ALTER TABLE visits ADD COLUMN browser TEXT",
-    ]
-
-    for sql in columnas_urls + columnas_visits:
+    for tabla, col, tipo in columnas:
         try:
-            cursor.execute(sql)
-            col = sql.split("ADD COLUMN")[1].strip().split()[0]
-            print(f"  ✅ Columna agregada: {col}")
+            cursor.execute(f"ALTER TABLE {tabla} ADD COLUMN {col} {tipo}")
+            print(f"  ✅ {tabla}.{col}")
         except sqlite3.OperationalError as e:
             if "duplicate column" in str(e).lower():
-                col = sql.split("ADD COLUMN")[1].strip().split()[0]
-                print(f"  ⏭️  Ya existe: {col}")
+                print(f"  ⏭️  ya existe: {tabla}.{col}")
             else:
                 print(f"  ❌ Error: {e}")
 
